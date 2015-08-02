@@ -1,0 +1,16 @@
+{
+  "name": "clone-leeroy",
+  "version": "0.1.0",
+  "description": "Clones repositories specified in a Leeroy config file.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bgrainger/clone-leeroy.git"
+  },
+  "author": "Bradley Grainger <bgrainger@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bgrainger/clone-leeroy/issues"
+  },
+  "homepage": "https://github.com/bgrainger/clone-leeroy#readme"
+}
