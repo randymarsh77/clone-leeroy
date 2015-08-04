@@ -98,81 +98,72 @@ function processNext(submodules) {
     remoteUrl: `git@git:${owner}/${repo}.git`
   };
 
+  let promise;
   if (!fs.existsSync(submodule.repo)) {
-    clone(submodules, submodule);
+    promise = clone(submodule);
   } else {
-    checkRemote(submodules, submodule);
+    promise = checkRemote(submodule)
+      .then(() => fetchOrigin(submodule))
+      .then(() => checkBranch(submodule))
+      .then(() => pull(submodule))
   }
+  promise.then(() => processNext(submodules), error => {
+    console.error(`Error: ${error}`);
+    process.exit(1);
+  });
 }
 
-function clone(submodules, submodule) {
+function clone(submodule) {
   console.log(`  Directory ${submodule.repo} does not exist; cloning it.`);
-  exec_git(`clone --recursive --branch ${submodule.branch} ${submodule.remoteUrl}`, {}, () => {
-    processNext(submodules);
-  });
+  return exec_git(`clone --recursive --branch ${submodule.branch} ${submodule.remoteUrl}`, {});
 }
 
-function checkRemote(submodules, submodule) {
-  exec_git('config --get remote.origin.url', { cwd: submodule.repo }, stdout => {
-    const currentRemoteUrl = stdout.toString().trim();
-    if (currentRemoteUrl !== submodule.remoteUrl) {
-      console.log(`  Changing origin URL from ${currentRemoteUrl} to ${submodule.remoteUrl}`);
-      changeRemoteUrl(submodules, submodule);
-    } else {
-      fetchOrigin(submodules, submodule);
-    }
-  });
-}
-
-function changeRemoteUrl(submodules, submodule) {
-  exec_git('remote rm origin', { cwd: submodule.repo }, () => {
-    exec_git(`remote add origin ${submodule.remoteUrl}`, { cwd: submodule.repo }, () => {
-      fetchOrigin(submodules, submodule);
+function checkRemote(submodule) {
+  return exec_git('config --get remote.origin.url', { cwd: submodule.repo })
+    .then(currentRemoteUrl => {
+      if (currentRemoteUrl !== submodule.remoteUrl) {
+        console.log(`  Changing origin URL from ${currentRemoteUrl} to ${submodule.remoteUrl}`);
+        return changeRemoteUrl(submodule);
+      }
     });
-  });
 }
 
-function fetchOrigin(submodules, submodule) {
+function changeRemoteUrl(submodule) {
+  return exec_git('remote rm origin', { cwd: submodule.repo })
+    .then(() => exec_git(`remote add origin ${submodule.remoteUrl}`, { cwd: submodule.repo }));
+}
+
+function fetchOrigin(submodule) {
   console.log('  Fetching commits from origin...');
-  exec_git('fetch origin', { cwd: submodule.repo }, () => {
-    checkBranch(submodules, submodule);
-  });
+  return exec_git('fetch origin', { cwd: submodule.repo });
 }
 
-function checkBranch(submodules, submodule) {
-  exec_git('symbolic-ref --short -q HEAD', { cwd: submodule.repo }, stdout => {
-    const currentBranch = stdout.toString().trim();
-    if (currentBranch !== submodule.branch) {
-      console.log(`  Switching branches from ${currentBranch} to ${submodule.branch}`);
-      exec_git(`branch --list -q --no-color ${submodule.branch}`, { cwd: submodule.repo }, stdout => {
-        const existingTargetBranch = stdout.toString().trim();
-        if (existingTargetBranch !== submodule.branch) {
-          exec_git(`checkout -B ${submodule.branch} --track origin/${submodule.branch}`, { cwd: submodule.repo }, () => {
-            pull(submodules, submodule);
-          });
-        } else {
-          exec_git(`checkout ${submodule.branch}`, { cwd: submodule.repo }, () => {
-            pull(submodules, submodule);
+function checkBranch(submodule) {
+  return exec_git('symbolic-ref --short -q HEAD', { cwd: submodule.repo })
+    .then(currentBranch => {
+      if (currentBranch !== submodule.branch) {
+        console.log(`  Switching branches from ${currentBranch} to ${submodule.branch}`);
+        return exec_git(`branch --list -q --no-color ${submodule.branch}`, { cwd: submodule.repo })
+          .then(existingTargetBranch => {
+            if (existingTargetBranch !== submodule.branch) {
+              return exec_git(`checkout -B ${submodule.branch} --track origin/${submodule.branch}`, { cwd: submodule.repo });
+            } else {
+              return exec_git(`checkout ${submodule.branch}`, { cwd: submodule.repo });
+            }
           });
         }
       });
-    } else {
-      pull(submodules, submodule);
-    }
-  });
 }
 
-function pull(submodules, submodule) {
-  exec_git(`pull --rebase origin ${submodule.branch}`, { cwd: submodule.repo }, stdout => {
-    const pullOutput = stdout.toString().trim();
-    exec_git('submodule update --init --recursive', { cwd: submodule.repo }, () => {
-      console.log(`  ${pullOutput}`);
-      processNext(submodules);
-    });
-  });
+function pull(submodule) {
+  return exec_git(`pull --rebase origin ${submodule.branch}`, { cwd: submodule.repo })
+    .then(pullOutput => Promise.all([pullOutput, exec_git('submodule update --init --recursive', { cwd: submodule.repo })]))
+    .then(([pullOutput]) => {
+        console.log(`  ${pullOutput}`);
+      });
 }
 
-function exec_git(args, options, callback) {
+function exec_git(args, options) {
   options.env = options.env || {};
   options.env.HOME = home;
 
@@ -180,13 +171,13 @@ function exec_git(args, options, callback) {
   // has configured SSH Agent Forwarding
   // See https://help.github.com/articles/using-ssh-agent-forwarding
   options.env.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
-
-  exec(`${gitPath} ${args}`, options, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error executing "git ${args}": ${error}`);
-      process.exit(1);
-    } else {
-      callback(stdout, stderr);
-    }
+  return new Promise((resolve, reject) => {
+    exec(`${gitPath} ${args}`, options, (error, stdout) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(stdout.toString().trim());
+      }
+    });
   });
 }
