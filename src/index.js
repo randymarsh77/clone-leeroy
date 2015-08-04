@@ -8,22 +8,12 @@ const home = process.platform === 'darwin' ? process.env.HOME : process.env.HOME
 
 const configFileName = '.clonejs';
 
-const [, , project, flag] = process.argv;
-
-let promise;
-if (!project) {
-  promise = fs.read(configFileName)
-    .then(content => {
-      const settings = JSON.parse(content);
-      return settings.leeroyConfig;
-    });
-} else if (flag === '--save') {
-  const settings = { leeroyConfig: project };
-  promise = fs.write(configFileName, JSON.stringify(settings))
-    .then(() => project);
-}
-
-promise
+Promise.resolve(process.argv)
+  .then(([, , project, flag]) => {
+    if (!project) return readLeeroyConfig();
+    else if (flag === '--save') return createLeeroyConfig(project);
+    else return project;
+  })
   .then(configName => {
     if (!configName) throw new Error('Usage: clone-leeroy CONFIGNAME [--save]');
 
@@ -39,14 +29,29 @@ promise
     return config;
   })
   .then(config => {
-    const promise = createSolutionInfos();
+    const createPromise = createSolutionInfos();
     return Object.keys(config.submodules)
-      .reduce((promise, next) => promise.then(() => processNext(next, config)), promise);
+      .reduce((promise, next) => promise.then(() => processNext(next, config)), createPromise);
   })
   .catch(error => {
     console.error(error.message || `Error: ${error}`);
     process.exit(1);
   });
+
+function readLeeroyConfig() {
+  return fs.read(configFileName)
+    .then(content => {
+      const settings = JSON.parse(content);
+      return settings.leeroyConfig;
+    })
+    .catch(() => null);
+}
+
+function createLeeroyConfig(project) {
+  const settings = { leeroyConfig: project };
+  return fs.write(configFileName, JSON.stringify(settings))
+    .then(() => project);
+}
 
 function createSolutionInfos() {
   const solutionInfos = [{
