@@ -158,7 +158,7 @@
     "quotes" : 0,
     "id-match" : 0,
     "semi-spacing" : 0,
-    "semi" : 0,
+    "semi" : [2, "always"],
     "sort-vars" : 0,
     "space-after-keywords" : 0,
     "space-before-blocks" : 0,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import http from 'q-io/http';
-import fs from 'fs';
+import fs from 'q-io/fs';
 import { exec } from 'child_process';
 
 const gitPath = process.platform === 'darwin' ? 'git' : '"C:\\Program Files (x86)\\Git\\bin\\git.exe"';
@@ -8,27 +8,30 @@ const home = process.platform === 'darwin' ? process.env.HOME : process.env.HOME
 
 const configFileName = '.clonejs';
 
-let [, , project, flag] = process.argv;
+const [, , project, flag] = process.argv;
 
+let promise;
 if (!project) {
-  if (fs.existsSync(configFileName)) {
-    const settings = JSON.parse(fs.readFileSync(configFileName, { encoding: 'utf-8' }).toString());
-    project = settings.leeroyConfig;
-  }
+  promise = fs.read(configFileName)
+    .then(content => {
+      const settings = JSON.parse(content);
+      return settings.leeroyConfig;
+    });
 } else if (flag === '--save') {
   const settings = { leeroyConfig: project };
-  fs.writeFileSync(configFileName, JSON.stringify(settings));
+  promise = fs.write(configFileName, JSON.stringify(settings))
+    .then(() => project);
 }
 
-if (!project) {
-  console.error('Usage: clone-leeroy CONFIGNAME [--save]');
-  process.exit(1);
-}
+promise
+  .then(configName => {
+    if (!configName) throw new Error('Usage: clone-leeroy CONFIGNAME [--save]');
 
-console.log('Getting ' + project);
-http.read(`http://git/raw/Build/Configuration/master/${project}.json`)
-  .catch(() => {
-    throw new Error(`Couldn't download Leeroy config file: ${project}`);
+    console.log(`Getting ${configName}`);
+    return http.read(`http://git/raw/Build/Configuration/master/${configName}.json`)
+      .catch(() => {
+        throw new Error(`Couldn't download Leeroy config file: ${configName}`);
+      });
   })
   .then(data => {
     const config = JSON.parse(data);
@@ -36,9 +39,9 @@ http.read(`http://git/raw/Build/Configuration/master/${project}.json`)
     return config;
   })
   .then(config => {
-    createSolutionInfos();
+    const promise = createSolutionInfos();
     return Object.keys(config.submodules)
-      .reduce((promise, next) => promise.then(() => processNext(next, config)), Promise.resolve())
+      .reduce((promise, next) => promise.then(() => processNext(next, config)), promise);
   })
   .catch(error => {
     console.error(error.message || `Error: ${error}`);
@@ -72,11 +75,11 @@ function createSolutionInfos() {
 `
   }];
 
-  for (const info of solutionInfos) {
-    if (!fs.existsSync(info.name)) {
-      fs.writeFileSync(info.name, info.data);
-    }
-  }
+  return Promise.all(solutionInfos.map(info => fs.exists(info.name)
+    .then(exists => {
+      if (!exists) return fs.write(info.name, info.data);
+    })
+  ));
 }
 
 function processNext(next, config) {
@@ -91,14 +94,15 @@ function processNext(next, config) {
     remoteUrl: `git@git:${owner}/${repo}.git`
   };
 
-  if (!fs.existsSync(submodule.repo)) {
-    return clone(submodule);
-  } else {
-    return checkRemote(submodule)
-      .then(() => fetchOrigin(submodule))
-      .then(() => checkBranch(submodule))
-      .then(() => pull(submodule));
-  }
+  return fs.exists(submodule.repo)
+    .then(exists =>
+      !exists ?
+        clone(submodule) :
+        checkRemote(submodule)
+          .then(() => fetchOrigin(submodule))
+          .then(() => checkBranch(submodule))
+          .then(() => pull(submodule))
+    );
 }
 
 function clone(submodule) {
