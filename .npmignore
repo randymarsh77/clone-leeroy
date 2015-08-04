@@ -1,3 +1,4 @@
+.eslintrc
 .gitattributes
 gulpfile.babel.js
 jsconfig.json
