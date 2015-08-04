@@ -26,10 +26,9 @@ if (!project) {
 }
 
 console.log('Getting ' + project);
-http.request(`http://git/raw/Build/Configuration/master/${project}.json`)
-  .then(res => {
-    if (res.status !== 200) throw new Error(`Couldn't download Leeroy config file: ${project}`);
-    return res.body.read();
+http.read(`http://git/raw/Build/Configuration/master/${project}.json`)
+  .catch(() => {
+    throw new Error(`Couldn't download Leeroy config file: ${project}`);
   })
   .then(data => {
     const config = JSON.parse(data);
