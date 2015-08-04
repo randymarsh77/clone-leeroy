@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import http from 'http';
+import http from 'q-io/http';
 import fs from 'fs';
 import { exec } from 'child_process';
 
@@ -26,21 +26,17 @@ if (!project) {
 }
 
 console.log('Getting ' + project);
-http.get(`http://git/raw/Build/Configuration/master/${project}.json`, res => {
-  if (res.statusCode !== 200) {
-    console.error(`Couldn't download Leeroy config file: ${project}`);
-    process.exit(1);
-  }
-
-  let data = '';
-  res.on('data', chunk => data += chunk);
-  res.on('end', () => {
+http.request(`http://git/raw/Build/Configuration/master/${project}.json`)
+  .then(res => {
+    if (res.status !== 200) throw new Error(`Couldn't download Leeroy config file: ${project}`);
+    return res.body.read();
+  })
+  .then(data => {
     const config = JSON.parse(data);
-    if (!config.submodules) {
-      console.error(`Leeroy config file is missing 'submodules' configuration.`);
-      process.exit(1);
-    }
-
+    if (!config.submodules) throw new Error(`Leeroy config file is missing 'submodules' configuration.`);
+    return config;
+  })
+  .then(config => {
     createSolutionInfos();
 
     let promise = Promise.resolve();
@@ -67,13 +63,12 @@ http.get(`http://git/raw/Build/Configuration/master/${project}.json`, res => {
         }
       });
     }
-
-    promise.catch(error => {
-      console.error(`Error: ${error}`);
-      process.exit(1);
-    });
+    return promise;
+  })
+  .catch(error => {
+    console.error(error.message || `Error: ${error}`);
+    process.exit(1);
   });
-});
 
 function createSolutionInfos() {
   const solutionInfos = [{
