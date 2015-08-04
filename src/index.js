@@ -38,32 +38,8 @@ http.request(`http://git/raw/Build/Configuration/master/${project}.json`)
   })
   .then(config => {
     createSolutionInfos();
-
-    let promise = Promise.resolve();
-    for (const next of Object.keys(config.submodules)) {
-      promise = promise.then(() => {
-        const branch = config.submodules[next];
-        console.log(`Processing ${next}`);
-
-        const [owner, repo] = next.split('/');
-        const submodule = {
-          owner,
-          repo,
-          branch,
-          remoteUrl: `git@git:${owner}/${repo}.git`
-        };
-
-        if (!fs.existsSync(submodule.repo)) {
-          return clone(submodule);
-        } else {
-          return checkRemote(submodule)
-            .then(() => fetchOrigin(submodule))
-            .then(() => checkBranch(submodule))
-            .then(() => pull(submodule));
-        }
-      });
-    }
-    return promise;
+    return Object.keys(config.submodules)
+      .reduce((promise, next) => promise.then(() => processNext(next, config)), Promise.resolve())
   })
   .catch(error => {
     console.error(error.message || `Error: ${error}`);
@@ -101,6 +77,28 @@ function createSolutionInfos() {
     if (!fs.existsSync(info.name)) {
       fs.writeFileSync(info.name, info.data);
     }
+  }
+}
+
+function processNext(next, config) {
+  const branch = config.submodules[next];
+  console.log(`Processing ${next}`);
+
+  const [owner, repo] = next.split('/');
+  const submodule = {
+    owner,
+    repo,
+    branch,
+    remoteUrl: `git@git:${owner}/${repo}.git`
+  };
+
+  if (!fs.existsSync(submodule.repo)) {
+    return clone(submodule);
+  } else {
+    return checkRemote(submodule)
+      .then(() => fetchOrigin(submodule))
+      .then(() => checkBranch(submodule))
+      .then(() => pull(submodule));
   }
 }
 
