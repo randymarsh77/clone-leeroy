@@ -1,6 +1,6 @@
 {
   "name": "clone-leeroy",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Clones repositories specified in a Leeroy config file.",
   "main": "dist/index.js",
   "bin": "./dist/index.js",
@@ -21,5 +21,8 @@
     "gulp-batch": "^1.0.5",
     "gulp-eslint": "^1.0.0",
     "gulp-watch": "^4.3.4"
+  },
+  "dependencies": {
+    "q-io": "^1.13.1"
   }
 }
