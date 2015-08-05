@@ -9,6 +9,9 @@
     "url": "git://github.com/bgrainger/clone-leeroy.git"
   },
   "author": "Bradley Grainger <bgrainger@gmail.com>",
+  "contributors": [
+    "Jacob Carpenter <github@jacobcarpenter.com>"
+  ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/bgrainger/clone-leeroy/issues"
