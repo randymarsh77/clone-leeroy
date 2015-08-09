@@ -18,7 +18,8 @@ Promise.resolve(process.argv)
     if (!configName) throw new Error('Usage: clone-leeroy CONFIGNAME [--save]');
 
     console.log(`Getting ${configName}`);
-    return http.read(`http://git/raw/Build/Configuration/master/${configName}.json`)
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    return http.read(`https://git/raw/Build/Configuration/master/${configName}.json`)
       .catch(() => {
         throw new Error(`Couldn't download Leeroy config file: ${configName}`);
       });
