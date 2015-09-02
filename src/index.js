@@ -2,6 +2,7 @@
 import http from 'q-io/http';
 import fs from 'q-io/fs';
 import { exec } from 'child_process';
+import os from 'os';
 
 const gitPath = process.platform === 'darwin' ? Promise.resolve('git') :
   fs.exists('C:\\Program Files\\Git\\bin\\git.exe')
@@ -33,12 +34,14 @@ Promise.resolve(process.argv)
   })
   .then(config => {
     const createPromise = createSolutionInfos();
-    return Object.keys(config.submodules)
-      .reduce((promise, next) => promise.then(() => processNext(next, config)), createPromise);
+    return createPromise.then(() => {
+      const promises = Object.keys(config.submodules).map((name) => processSubmodule(name, config));
+      return Promise.all(promises);
+    });
   })
   .catch(error => {
-    console.error(error.message || `Error: ${error}`);
-    process.exit(1);
+    console.error('\x1b[31m' + (error.message || `Error: ${error}`) + '\x1b[0m');
+    process.exitCode = 1;
   });
 
 function readLeeroyConfig() {
@@ -90,17 +93,20 @@ function createSolutionInfos() {
   ));
 }
 
-function processNext(next, config) {
-  const branch = config.submodules[next];
-  console.log(`Processing ${next}`);
+function processSubmodule(name, config) {
+  const branch = config.submodules[name];
 
-  const [owner, repo] = next.split('/');
+  const [owner, repo] = name.split('/');
   const submodule = {
+    _logs: [],
     owner,
     repo,
     branch,
-    remoteUrl: `git@git:${owner}/${repo}.git`
+    remoteUrl: `git@git:${owner}/${repo}.git`,
+    log(message, indent=0) { this._logs = this._logs.concat(message.split(/\r?\n/).map((line) => { return Array(indent + 1).join(' ') + line; })); },
+    output() { return this._logs.join(os.EOL); }
   };
+  submodule.log(`Processing ${name}`);
 
   return fs.exists(submodule.repo)
     .then(exists =>
@@ -110,11 +116,17 @@ function processNext(next, config) {
           .then(() => fetchOrigin(submodule))
           .then(() => checkBranch(submodule))
           .then(() => pull(submodule))
-    );
+    )
+    .then(() => {
+      console.log(submodule.output());
+    }).catch((error) => {
+        submodule.log(error.message || error, 2);
+        return Promise.reject(submodule.output());
+    });
 }
 
 function clone(submodule) {
-  console.log(`  Directory ${submodule.repo} does not exist; cloning it.`);
+  submodule.log(`Directory ${submodule.repo} does not exist; cloning it.`, 2);
   return exec_git(`clone --recursive --branch ${submodule.branch} ${submodule.remoteUrl}`, {});
 }
 
@@ -122,7 +134,7 @@ function checkRemote(submodule) {
   return exec_git('config --get remote.origin.url', { cwd: submodule.repo })
     .then(currentRemoteUrl => {
       if (currentRemoteUrl !== submodule.remoteUrl) {
-        console.log(`  Changing origin URL from ${currentRemoteUrl} to ${submodule.remoteUrl}`);
+        submodule.log(`Changing origin URL from ${currentRemoteUrl} to ${submodule.remoteUrl}`, 2);
         return changeRemoteUrl(submodule);
       }
     });
@@ -134,7 +146,7 @@ function changeRemoteUrl(submodule) {
 }
 
 function fetchOrigin(submodule) {
-  console.log('  Fetching commits from origin...');
+  submodule.log('Fetching commits from origin...', 2);
   return exec_git('fetch origin', { cwd: submodule.repo });
 }
 
@@ -142,7 +154,7 @@ function checkBranch(submodule) {
   return exec_git('symbolic-ref --short -q HEAD', { cwd: submodule.repo })
     .then(currentBranch => {
       if (currentBranch !== submodule.branch) {
-        console.log(`  Switching branches from ${currentBranch} to ${submodule.branch}`);
+        submodule.log(`Switching branches from ${currentBranch} to ${submodule.branch}`, 2);
         return exec_git(`branch --list -q --no-color ${submodule.branch}`, { cwd: submodule.repo })
           .then(existingTargetBranch => {
             if (existingTargetBranch !== submodule.branch) {
@@ -159,7 +171,7 @@ function pull(submodule) {
   return exec_git(`pull --rebase origin ${submodule.branch}`, { cwd: submodule.repo })
     .then(pullOutput => Promise.all([pullOutput, exec_git('submodule update --init --recursive', { cwd: submodule.repo })]))
     .then(([pullOutput]) => {
-        console.log(`  ${pullOutput}`);
+        submodule.log(`${pullOutput}`, 2);
       });
 }
 
