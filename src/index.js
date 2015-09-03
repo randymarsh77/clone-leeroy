@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --harmony_strings
 import http from 'q-io/http';
 import fs from 'q-io/fs';
 import { exec } from 'child_process';
@@ -103,7 +103,7 @@ function processSubmodule(name, config) {
     repo,
     branch,
     remoteUrl: `git@git:${owner}/${repo}.git`,
-    log(message, indent=0) { this._logs = this._logs.concat(message.split(/\r?\n/).map((line) => { return Array(indent + 1).join(' ') + line; })); },
+    log(message, indent=0) { this._logs = this._logs.concat(message.split(/\r?\n/).map((line) => { return ' '.repeat(indent) + line; })); },
     output() { return this._logs.join(os.EOL); }
   };
   submodule.log(`Processing ${name}`);
