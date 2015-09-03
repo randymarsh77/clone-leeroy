@@ -35,7 +35,7 @@ Promise.resolve(process.argv)
   .then(config => {
     const createPromise = createSolutionInfos();
     return createPromise.then(() => {
-      const promises = Object.keys(config.submodules).map((name) => processSubmodule(name, config));
+      const promises = Object.keys(config.submodules).map(name => processSubmodule(name, config));
       return Promise.all(promises);
     });
   })
@@ -103,7 +103,7 @@ function processSubmodule(name, config) {
     repo,
     branch,
     remoteUrl: `git@git:${owner}/${repo}.git`,
-    log(message, indent=0) { this._logs = this._logs.concat(message.split(/\r?\n/).map((line) => { return ' '.repeat(indent) + line; })); },
+    log(message, indent=0) { this._logs = this._logs.concat(message.split(/\r?\n/).map(line => { return ' '.repeat(indent) + line; })); },
     output() { return this._logs.join(os.EOL); }
   };
   submodule.log(`Processing ${name}`);
@@ -119,7 +119,7 @@ function processSubmodule(name, config) {
     )
     .then(() => {
       console.log(submodule.output());
-    }).catch((error) => {
+    }).catch(error => {
         submodule.log(error.message || error, 2);
         return Promise.reject(submodule.output());
     });
