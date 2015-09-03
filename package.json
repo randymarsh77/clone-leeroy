@@ -1,6 +1,6 @@
 {
   "name": "clone-leeroy",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Clones repositories specified in a Leeroy config file.",
   "main": "dist/index.js",
   "bin": "./dist/index.js",
@@ -10,7 +10,8 @@
   },
   "author": "Bradley Grainger <bgrainger@gmail.com>",
   "contributors": [
-    "Jacob Carpenter <github@jacobcarpenter.com>"
+    "Jacob Carpenter <github@jacobcarpenter.com>",
+    "Jeff Huff <jeff@thehuffs.com>"
   ],
   "license": "MIT",
   "bugs": {
