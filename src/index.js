@@ -11,7 +11,7 @@ const gitPath = process.platform === 'darwin' ? Promise.resolve('git') :
 const home = process.platform === 'darwin' ? process.env.HOME : process.env.HOMEDRIVE + process.env.HOMEPATH;
 
 const configFileName = '.clonejs';
-const version = '0.7.1';
+const version = '0.8.0';
 
 Promise.resolve(process.argv)
   .then(() => {
